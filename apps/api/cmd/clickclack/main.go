@@ -326,6 +326,44 @@ func admin(args []string) error {
 		}
 		fmt.Printf("%s\n", user.ID)
 		return nil
+	// DHC: Workspaces und Channels per Admin-Befehl anlegen (sonst nur über eine angemeldete Person in der App).
+	case "workspace", "channel":
+		if len(args) < 2 || args[1] != "create" {
+			return fmt.Errorf("usage: clickclack admin workspace create --name NAME --owner USER_ID | admin channel create --workspace WORKSPACE_ID --created-by USER_ID --name NAME")
+		}
+		flags := flag.NewFlagSet("admin "+args[0]+" create", flag.ExitOnError)
+		data := flags.String("data", defaultData(), "data directory")
+		dbURL := flags.String("db", defaultDB(), "database URL")
+		name := flags.String("name", "", "workspace or channel name")
+		owner := flags.String("owner", "", "owner user id (workspace)")
+		workspaceID := flags.String("workspace", "", "workspace id (channel)")
+		createdBy := flags.String("created-by", "", "creator user id (channel)")
+		if err := flags.Parse(args[2:]); err != nil {
+			return err
+		}
+		st, err := openStore(resolveDB(*data, *dbURL))
+		if err != nil {
+			return err
+		}
+		defer st.Close()
+		ctx := context.Background()
+		if err := st.Migrate(ctx); err != nil {
+			return err
+		}
+		if args[0] == "workspace" {
+			workspace, err := st.CreateWorkspace(ctx, store.CreateWorkspaceInput{Name: *name}, *owner)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("%s\n", workspace.ID)
+			return nil
+		}
+		channel, _, err := st.CreateChannel(ctx, store.CreateChannelInput{WorkspaceID: *workspaceID, Name: *name, UserID: *createdBy})
+		if err != nil {
+			return err
+		}
+		fmt.Printf("%s\n", channel.ID)
+		return nil
 	case "member":
 		if len(args) < 2 || args[1] != "add" {
 			return fmt.Errorf("usage: clickclack admin member add --workspace WORKSPACE_ID --created-by USER_ID (--email EMAIL | --user USER_ID) [--role member]")
