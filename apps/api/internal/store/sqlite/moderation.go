@@ -467,3 +467,21 @@ func (s *Store) BindBotChannel(ctx context.Context, bot, channelID string) error
 	}
 	return tx.Commit()
 }
+
+// BotChannelBindings returns bound channel ids per bot user in a workspace (DHC).
+func (s *Store) BotChannelBindings(ctx context.Context, workspaceID string) (map[string][]string, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT b.bot_user_id, b.channel_id FROM bot_channel_bindings b JOIN channels c ON c.id = b.channel_id WHERE c.workspace_id = ?`, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string][]string{}
+	for rows.Next() {
+		var bot, channel string
+		if err := rows.Scan(&bot, &channel); err != nil {
+			return nil, err
+		}
+		out[bot] = append(out[bot], channel)
+	}
+	return out, rows.Err()
+}

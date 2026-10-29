@@ -25,7 +25,7 @@
     trimMessageWindow as trimMessageWindowMessages,
     type MessageWindowDirection,
   } from "./lib/chat/messageWindow";
-  import { collectMentionPeople, collectRecentPeople, dmTitle } from "./lib/chat/people";
+  import { collectMentionPeople, collectRecentPeople, dmTitle, mentionCandidatesForChannel } from "./lib/chat/people";
   import { coalesceAgentActivity } from "./lib/chat/agent-activity";
   import { loadActivityPreferences, storeActivityPreference, applyMessageAlignments } from "./lib/chat/activity-preferences";
   import { newNonce } from "./lib/chat/messages";
@@ -354,6 +354,7 @@
   );
   $: recentPeople = collectRecentPeople(messages, directConversations, user?.id || "");
   $: mentionPeople = collectMentionPeople(user, recentPeople, workspaceMemberUsers, selectedDirect);
+  $: channelMentionPeople = mentionCandidatesForChannel(mentionPeople, selectedChannelID); // DHC
   $: mentionAttentionUserID =
     user?.id &&
     (selectedDirectID ||
@@ -4138,7 +4139,7 @@
       showToolbar
       slashCommands={selectedChannelID ? slashCommands : []}
       botCommands={composerBotCommands}
-      {mentionPeople}
+      mentionPeople={channelMentionPeople}
       onValue={(value) => {
         const previous = messageBody;
         messageBody = value;
@@ -4216,7 +4217,7 @@
         replyTarget={$threadView.draft?.quote ?? null}
         replyError={$threadView.draft?.error || $threadView.error}
         replySending={$threadView.draft?.sending ?? false}
-        {mentionPeople}
+        mentionPeople={channelMentionPeople}
         {mentionAttentionUserID}
         {agentResponding}
         respondingAgentNames={activeRespondingAgentNames}

@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -234,6 +235,16 @@ func (s *Server) listWorkspaceMemberPage(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		writeStoreError(w, err)
 		return
+	}
+	// DHC: Bindungen der Bots mitliefern, damit @-Vorschläge nur Bots des aktuellen Channels zeigen.
+	if binder, ok := s.store.(interface {
+		BotChannelBindings(context.Context, string) (map[string][]string, error)
+	}); ok {
+		if bindings, err := binder.BotChannelBindings(r.Context(), workspaceID); err == nil {
+			for i := range members.Members {
+				members.Members[i].User.BoundChannelIDs = bindings[members.Members[i].User.ID]
+			}
+		}
 	}
 	writeJSON(w, http.StatusOK, members)
 }

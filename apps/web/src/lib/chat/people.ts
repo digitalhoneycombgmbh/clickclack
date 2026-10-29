@@ -91,6 +91,14 @@ export function collectMentionPeople(
   return [...people.values()];
 }
 
+// DHC: In a channel, suggest bots only when they are unbound or bound to that channel.
+export function mentionCandidatesForChannel(people: User[], channelID: string): User[] {
+  if (!channelID) return people;
+  return people.filter(
+    (person) => !person.bound_channel_ids?.length || person.bound_channel_ids.includes(channelID),
+  );
+}
+
 export function directConversationForUser(
   conversations: DirectConversation[],
   memberID: string,

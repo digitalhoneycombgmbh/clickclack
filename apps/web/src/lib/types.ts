@@ -9,6 +9,8 @@ export type User = {
   avatar_url: string;
   created_at: string;
   notification_settings?: NotificationSettings;
+  // DHC: channels a bot is bound to; empty or absent means unbound.
+  bound_channel_ids?: string[];
   appearance_preferences?: AppearancePreferences;
   sidebar_preferences?: SidebarPreferences;
   // Reported only for the signed-in account, on /api/me.

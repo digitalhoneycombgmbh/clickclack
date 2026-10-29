@@ -234,6 +234,7 @@ type User struct {
 	CreatedAt            string                `json:"created_at"`
 	DeletedAt            *string               `json:"deleted_at,omitempty"`
 	NotificationSettings *NotificationSettings `json:"notification_settings,omitempty"`
+	BoundChannelIDs      []string              `json:"bound_channel_ids,omitempty"` // DHC: Channel-Bindung eines Bots
 }
 
 type NotificationSettings struct {
