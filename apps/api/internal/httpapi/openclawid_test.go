@@ -180,6 +180,7 @@ func TestOpenClawIDOAuthFlow(t *testing.T) {
 			ID          string `json:"id"`
 			DisplayName string `json:"display_name"`
 			AvatarURL   string `json:"avatar_url"`
+			Handle      string `json:"handle"`
 		} `json:"user"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&me); err != nil {
@@ -191,6 +192,9 @@ func TestOpenClawIDOAuthFlow(t *testing.T) {
 	}
 	if me.User.AvatarURL != "https://lh3.googleusercontent.com/a/crab" {
 		t.Fatalf("expected provider picture as avatar, got %q", me.User.AvatarURL)
+	}
+	if me.User.Handle != "crab" {
+		t.Fatalf("expected handle from email local part, got %q", me.User.Handle)
 	}
 
 	// The email is normalized to lowercase, so a magic-link user with the
@@ -756,6 +760,20 @@ func TestOpenClawIDDiscoveryRejectsInvalidExplicitIssuer(t *testing.T) {
 		_, err := (OpenClawIDConfig{ClientID: "client", ClientSecret: "test-secret", Issuer: issuer, AuthURL: "https://id.example/authorize", TokenURL: "https://id.example/token", HTTPClient: &http.Client{Transport: failRoundTrip{}}}).ApplyDiscovery(context.Background())
 		if err == nil {
 			t.Errorf("invalid issuer accepted: %s", issuer)
+		}
+	}
+}
+
+func TestDefaultHandleFromEmail(t *testing.T) {
+	t.Parallel()
+	for email, want := range map[string]string{
+		"Max.Mustermann@example.com": "max-mustermann",
+		"alex@digitalhoneycomb.de":   "alex",
+		"a@example.com":              "",
+		"jürgen.groß@example.com":    "juergen-gross",
+	} {
+		if got := defaultHandleFromEmail(email); got != want {
+			t.Errorf("defaultHandleFromEmail(%q) = %q, want %q", email, got, want)
 		}
 	}
 }

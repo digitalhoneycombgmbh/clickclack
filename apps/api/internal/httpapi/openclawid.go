@@ -303,6 +303,18 @@ func (s *Server) openclawIDCallback(w http.ResponseWriter, r *http.Request) {
 			log.Printf("openclaw id avatar update failed correlation_id=%q error_type=%T", correlationIDFromContext(r.Context()), err)
 		}
 	}
+	// DHC: Kürzel aus dem Teil vor dem @, solange niemand eins gesetzt hat; bei Kollision -2, -3, ...
+	if base := defaultHandleFromEmail(claims.Email); user.Handle == "" && base != "" {
+		for i := 1; i <= 9; i++ {
+			handle := base
+			if i > 1 {
+				handle = fmt.Sprintf("%s-%d", base, i)
+			}
+			if _, err := s.store.UpdateCurrentUser(r.Context(), store.UpdateCurrentUserInput{UserID: user.ID, Handle: &handle}); err == nil {
+				break
+			}
+		}
+	}
 	if _, err := s.store.EnsureDefaultWorkspaceMember(r.Context(), user.ID); err != nil {
 		s.writeOpenClawIDOAuthServerError(w, r, "workspace provisioning", err)
 		return
@@ -415,4 +427,24 @@ func providerAvatarReplaceable(avatarURL, email string) bool {
 	return avatarURL == "" ||
 		avatarURL == store.ResolveAvatarURL("", email) ||
 		strings.HasPrefix(avatarURL, "https://lh3.googleusercontent.com/")
+}
+
+// defaultHandleFromEmail turns the local part of an email into a valid handle
+// (2-30 chars of letters, numbers, underscores, dashes), or "" when too short.
+func defaultHandleFromEmail(email string) string {
+	local, _, _ := strings.Cut(strings.ToLower(strings.TrimSpace(email)), "@")
+	local = strings.NewReplacer("ä", "ae", "ö", "oe", "ü", "ue", "ß", "ss").Replace(local)
+	handle := strings.Trim(strings.Map(func(r rune) rune {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '_' || r == '-' {
+			return r
+		}
+		return '-'
+	}, local), "-")
+	if len(handle) > 30 { // Platz für "-2" bis "-9"
+		handle = strings.TrimRight(handle[:30], "-")
+	}
+	if len(handle) < 2 {
+		return ""
+	}
+	return handle
 }
