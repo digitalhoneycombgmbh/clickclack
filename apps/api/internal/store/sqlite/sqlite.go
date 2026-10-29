@@ -682,6 +682,14 @@ func (s *Store) CreateMessage(ctx context.Context, input store.CreateMessageInpu
 	if err := requireMembershipTx(ctx, tx, workspaceID, input.AuthorID); err != nil {
 		return store.Message{}, store.Event{}, err
 	}
+	// DHC: gebundene Bots schreiben nur in ihre Channels.
+	if role, err := memberRoleTx(ctx, tx, workspaceID, input.AuthorID); err != nil {
+		return store.Message{}, store.Event{}, err
+	} else if role == store.WorkspaceRoleBot {
+		if err := requireBotChannelBindingTx(ctx, tx, input.ChannelID, input.AuthorID); err != nil {
+			return store.Message{}, store.Event{}, err
+		}
+	}
 	if err := requireTopicTx(ctx, tx, workspaceID, input.ChannelID, input.TopicID); err != nil {
 		return store.Message{}, store.Event{}, err
 	}

@@ -81,6 +81,9 @@ func requireGuestChannelAccessTx(ctx context.Context, tx *sql.Tx, workspaceID, c
 	if err != nil {
 		return err
 	}
+	if role == store.WorkspaceRoleBot {
+		return requireBotChannelBindingTx(ctx, tx, channelID, userID)
+	}
 	if role != store.WorkspaceRoleGuest {
 		return nil
 	}
@@ -424,4 +427,43 @@ func (s *Store) UserHasNonGuestMembership(ctx context.Context, userID string) (b
 		return false, nil
 	}
 	return err == nil, err
+}
+
+// DHC: Ein Bot mit Channel-Bindung (admin bot bind) erreicht nur gebundene Channels; ohne Bindung wie upstream.
+// ponytail: nur SQLite, Postgres-Store prüft keine Bindungen.
+func requireBotChannelBindingTx(ctx context.Context, tx *sql.Tx, channelID, botUserID string) error {
+	var bound, here int
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*), COALESCE(SUM(channel_id = ?), 0) FROM bot_channel_bindings WHERE bot_user_id = ?`, channelID, botUserID).Scan(&bound, &here); err != nil {
+		return err
+	}
+	if bound > 0 && here == 0 {
+		return store.ErrModerationRestricted
+	}
+	return nil
+}
+
+// BindBotChannel binds a bot (user id or handle) to a channel of a workspace it belongs to (DHC).
+func (s *Store) BindBotChannel(ctx context.Context, bot, channelID string) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var botUserID string
+	if err := tx.QueryRowContext(ctx, `SELECT id FROM users WHERE (id = ? OR handle = ?) AND kind = 'bot'`, bot, bot).Scan(&botUserID); err != nil {
+		return errors.New("only bots can be bound to channels")
+	}
+	var workspaceID string
+	if err := tx.QueryRowContext(ctx, `SELECT workspace_id FROM channels WHERE id = ?`, channelID).Scan(&workspaceID); err != nil {
+		return err
+	}
+	if role, err := memberRoleTx(ctx, tx, workspaceID, botUserID); err != nil {
+		return err
+	} else if role != store.WorkspaceRoleBot {
+		return errors.New("only bots can be bound to channels")
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO bot_channel_bindings (bot_user_id, channel_id) VALUES (?, ?)`, botUserID, channelID); err != nil {
+		return err
+	}
+	return tx.Commit()
 }

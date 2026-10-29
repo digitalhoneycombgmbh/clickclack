@@ -474,6 +474,33 @@ func admin(args []string) error {
 		fmt.Printf("%s\n", invite.Token)
 		return nil
 	case "bot":
+		// DHC: admin bot bind --bot USER_ID --channel CHANNEL_ID bindet einen Bot fest an einen Channel.
+		if len(args) >= 2 && args[1] == "bind" {
+			flags := flag.NewFlagSet("admin bot bind", flag.ExitOnError)
+			data := flags.String("data", defaultData(), "data directory")
+			dbURL := flags.String("db", defaultDB(), "database URL")
+			botID := flags.String("bot", "", "bot user id")
+			channelID := flags.String("channel", "", "channel id")
+			if err := flags.Parse(args[2:]); err != nil {
+				return err
+			}
+			st, err := openStore(resolveDB(*data, *dbURL))
+			if err != nil {
+				return err
+			}
+			defer st.Close()
+			binder, ok := st.(interface {
+				BindBotChannel(context.Context, string, string) error
+			})
+			if !ok {
+				return fmt.Errorf("bot channel bindings need the SQLite store")
+			}
+			if err := binder.BindBotChannel(context.Background(), *botID, *channelID); err != nil {
+				return err
+			}
+			fmt.Printf("%s -> %s\n", *botID, *channelID)
+			return nil
+		}
 		if len(args) < 2 || args[1] != "create" {
 			return fmt.Errorf("usage: clickclack admin bot create --workspace WORKSPACE_ID --created-by USER_ID --name NAME [--owner USER_ID] [--scopes bot:write]")
 		}

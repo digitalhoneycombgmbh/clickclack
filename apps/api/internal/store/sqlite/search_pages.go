@@ -176,6 +176,11 @@ func sqliteSearchScope(ctx context.Context, tx *sql.Tx, req store.SearchPageRequ
 		if role == store.WorkspaceRoleGuest && channelName != store.GuestChannelName {
 			return "", nil, store.ErrModerationRestricted
 		}
+		if role == store.WorkspaceRoleBot {
+			if err := requireBotChannelBindingTx(ctx, tx, req.ChannelID, req.UserID); err != nil {
+				return "", nil, err
+			}
+		}
 		return "AND m.channel_id = ? AND m.direct_conversation_id IS NULL", []any{req.ChannelID}, nil
 	case req.DirectConversationID != "":
 		var workspaceID string
@@ -202,6 +207,11 @@ func sqliteSearchScope(ctx context.Context, tx *sql.Tx, req store.SearchPageRequ
 				return "", nil, err
 			}
 			return "AND m.direct_conversation_id IS NULL AND m.channel_id = ?", []any{guestChannelID}, nil
+		}
+		if role == store.WorkspaceRoleBot { // DHC: gebundene Bots durchsuchen nur ihre Channels
+			return `AND m.direct_conversation_id IS NULL AND m.channel_id IS NOT NULL AND (
+				NOT EXISTS (SELECT 1 FROM bot_channel_bindings b WHERE b.bot_user_id = ?)
+				OR m.channel_id IN (SELECT b.channel_id FROM bot_channel_bindings b WHERE b.bot_user_id = ?))`, []any{req.UserID, req.UserID}, nil
 		}
 		return "AND m.direct_conversation_id IS NULL AND m.channel_id IS NOT NULL", nil, nil
 	}
