@@ -34,6 +34,14 @@ COPY --from=api /out/clickclack /usr/local/bin/clickclack
 RUN mkdir -p /app/data && chown -R clickclack:clickclack /app
 USER clickclack
 EXPOSE 8080
-VOLUME ["/app/data"]
+# DHC/Railway: VOLUME entfernt, Railway verbietet es; das Volume hängt Railway unter /app/data ein.
 ENTRYPOINT ["clickclack"]
 CMD ["serve", "--addr", ":8080", "--data", "/app/data"]
+
+# DHC/Railway: Start mit täglicher Sicherung nach R2 (deploy/railway/start.sh).
+USER root
+RUN apk add --no-cache rclone
+COPY deploy/railway/start.sh /usr/local/bin/railway-start
+USER clickclack
+ENTRYPOINT ["/usr/local/bin/railway-start"]
+CMD []
