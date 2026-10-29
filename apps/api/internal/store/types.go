@@ -219,8 +219,8 @@ const (
 	GuestPostLimit               = 3
 	MaxDirectConversationMembers = 32
 
-	UploadQuotaBytesPerUserWorkspace int64 = 512 << 20
-	UploadQuotaCountPerUserWorkspace int64 = 64
+	UploadQuotaBytesPerUserWorkspace int64 = 20 << 30 // DHC: 20 GiB statt 512 MiB
+	UploadQuotaCountPerUserWorkspace int64 = 5000     // DHC: statt 64
 )
 
 type User struct {

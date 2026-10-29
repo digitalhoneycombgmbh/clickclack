@@ -38,6 +38,7 @@ func newOpenClawIDToken(t *testing.T, issuer, audience, email, name string, veri
 		"email":          email,
 		"email_verified": verified,
 		"name":           name,
+		"picture":        "https://lh3.googleusercontent.com/a/crab",
 		"exp":            expiresAt.Unix(),
 		"iat":            time.Now().Unix(),
 	})
@@ -178,6 +179,7 @@ func TestOpenClawIDOAuthFlow(t *testing.T) {
 		User struct {
 			ID          string `json:"id"`
 			DisplayName string `json:"display_name"`
+			AvatarURL   string `json:"avatar_url"`
 		} `json:"user"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&me); err != nil {
@@ -186,6 +188,9 @@ func TestOpenClawIDOAuthFlow(t *testing.T) {
 	resp.Body.Close()
 	if me.User.DisplayName != "Crab User" {
 		t.Fatalf("unexpected display name %q", me.User.DisplayName)
+	}
+	if me.User.AvatarURL != "https://lh3.googleusercontent.com/a/crab" {
+		t.Fatalf("expected provider picture as avatar, got %q", me.User.AvatarURL)
 	}
 
 	// The email is normalized to lowercase, so a magic-link user with the

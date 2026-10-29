@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	maxUploadBytes       = 64 << 20
+	maxUploadBytes       = 1 << 30 // DHC: 1 GiB statt 64 MiB
 	uploadCleanupTimeout = 5 * time.Second
 	uploadNonceRetryWait = 25 * time.Millisecond
 	uploadNonceRetryMax  = 250 * time.Millisecond

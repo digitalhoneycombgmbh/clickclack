@@ -297,6 +297,12 @@ func (s *Server) openclawIDCallback(w http.ResponseWriter, r *http.Request) {
 		s.writeOpenClawIDOAuthServerError(w, r, "identity provisioning", err)
 		return
 	}
+	// DHC: Profilbild des Anbieters übernehmen, solange niemand selbst eins gesetzt hat.
+	if picture := strings.TrimSpace(claims.Picture); picture != "" && providerAvatarReplaceable(user.AvatarURL, claims.Email) {
+		if _, err := s.store.UpdateCurrentUser(r.Context(), store.UpdateCurrentUserInput{UserID: user.ID, AvatarURL: &picture}); err != nil {
+			log.Printf("openclaw id avatar update failed correlation_id=%q error_type=%T", correlationIDFromContext(r.Context()), err)
+		}
+	}
 	if _, err := s.store.EnsureDefaultWorkspaceMember(r.Context(), user.ID); err != nil {
 		s.writeOpenClawIDOAuthServerError(w, r, "workspace provisioning", err)
 		return
@@ -348,6 +354,7 @@ type openClawIDClaims struct {
 	Email         string `json:"email"`
 	EmailVerified bool   `json:"email_verified"`
 	Name          string `json:"name"`
+	Picture       string `json:"picture"`
 	jwt.RegisteredClaims
 }
 
@@ -399,4 +406,13 @@ func (s *Server) writeOpenClawIDOAuthServerError(w http.ResponseWriter, r *http.
 func (s *Server) writeOpenClawIDOAuthProviderError(w http.ResponseWriter, r *http.Request, phase string, err error) {
 	log.Printf("openclaw id oauth provider %s failed correlation_id=%q error_type=%T", phase, correlationIDFromContext(r.Context()), err)
 	writeError(w, http.StatusBadGateway, errors.New("openclaw id authentication provider request failed"))
+}
+
+// providerAvatarReplaceable reports whether the avatar is unset, the generated
+// fallback, or an earlier provider picture (Google), so a login may refresh it.
+// ponytail: Google-Präfix fest, bei weiteren Anbietern erweitern.
+func providerAvatarReplaceable(avatarURL, email string) bool {
+	return avatarURL == "" ||
+		avatarURL == store.ResolveAvatarURL("", email) ||
+		strings.HasPrefix(avatarURL, "https://lh3.googleusercontent.com/")
 }

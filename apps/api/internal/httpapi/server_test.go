@@ -826,7 +826,8 @@ func TestCleanupPendingUploadObjectsDrainsBeyondDefaultBatch(t *testing.T) {
 	}
 }
 
-func TestCreateWorkspaceAllowedForUsersWithoutMemberships(t *testing.T) {
+// DHC: Nur der Owner des Standard-Workspace legt Workspaces an.
+func TestCreateWorkspaceOnlyForDefaultWorkspaceOwner(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	dataDir := t.TempDir()
@@ -838,7 +839,8 @@ func TestCreateWorkspaceAllowedForUsersWithoutMemberships(t *testing.T) {
 	if err := st.Migrate(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := st.EnsureBootstrap(ctx, "Owner", "owner@example.com"); err != nil {
+	owner, err := st.EnsureBootstrap(ctx, "Owner", "owner@example.com")
+	if err != nil {
 		t.Fatal(err)
 	}
 	newUser, err := st.CreateUser(ctx, store.CreateUserInput{DisplayName: "New User", Email: "new@example.com"})
@@ -855,7 +857,8 @@ func TestCreateWorkspaceAllowedForUsersWithoutMemberships(t *testing.T) {
 	server := httptest.NewServer(New(st, realtime.NewHub(), Options{}).Handler())
 	t.Cleanup(server.Close)
 
-	expectStatusAsUser(t, newUser.ID, http.MethodPost, server.URL+"/api/workspaces", strings.NewReader(`{"name":"First Room"}`), http.StatusCreated)
+	expectStatusAsUser(t, newUser.ID, http.MethodPost, server.URL+"/api/workspaces", strings.NewReader(`{"name":"First Room"}`), http.StatusForbidden)
+	expectStatusAsUser(t, owner.ID, http.MethodPost, server.URL+"/api/workspaces", strings.NewReader(`{"name":"Buchhaltung"}`), http.StatusCreated)
 	expectStatusAsUser(t, guest.ID, http.MethodPost, server.URL+"/api/workspaces", strings.NewReader(`{"name":"Guest Escape"}`), http.StatusForbidden)
 }
 

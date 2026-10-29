@@ -68,6 +68,11 @@ func (s *Server) createWorkspace(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusForbidden, store.ErrModerationRestricted)
 		return
 	}
+	// DHC: Nur der Owner des Standard-Workspace legt weitere Workspaces an.
+	if !ownsDefaultWorkspace(workspaces) {
+		writeError(w, http.StatusForbidden, errors.New("only the default workspace owner can create workspaces"))
+		return
+	}
 	workspace, err := s.store.CreateWorkspace(r.Context(), store.CreateWorkspaceInput{Name: body.Name, Slug: body.Slug}, act.user.ID)
 	writeResultStatus(w, http.StatusCreated, map[string]any{"workspace": workspace}, err)
 }
@@ -323,4 +328,13 @@ func (s *Server) updateWorkspaceMemberModeration(w http.ResponseWriter, r *http.
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"member": member, "event": event})
+}
+
+func ownsDefaultWorkspace(workspaces []store.Workspace) bool {
+	for _, workspace := range workspaces {
+		if workspace.Slug == "clickclack" && workspace.Role == store.WorkspaceRoleOwner {
+			return true
+		}
+	}
+	return false
 }
